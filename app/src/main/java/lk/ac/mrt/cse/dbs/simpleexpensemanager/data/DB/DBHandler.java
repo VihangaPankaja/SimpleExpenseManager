@@ -71,15 +71,16 @@ public class DBHandler extends SQLiteOpenHelper {
         if (cursor.moveToFirst()){
             do {
                 accounts.add(new Account(
+                        cursor.getString(0),
                         cursor.getString(1),
                         cursor.getString(2),
-                        cursor.getString(3),
-                        cursor.getDouble(4)
+                        cursor.getDouble(3)
                 ));
             }while (cursor.moveToNext());
         }
 
         cursor.close();
+        db.close();
         return accounts;
     }
 
@@ -92,10 +93,10 @@ public class DBHandler extends SQLiteOpenHelper {
             do {
                 try {
                     transactions.add(new Transaction(
-                            new SimpleDateFormat("dd-mm-yyyy").parse(cursor.getString(1)),
-                            cursor.getString(2),
-                            (cursor.getString(3) == "expense") ? ExpenseType.EXPENSE: ExpenseType.INCOME,
-                            cursor.getDouble(4)
+                            new SimpleDateFormat("dd-mm-yyyy").parse(cursor.getString(0)),
+                            cursor.getString(1),
+                            (cursor.getString(2) == "expense") ? ExpenseType.EXPENSE: ExpenseType.INCOME,
+                            cursor.getDouble(3)
                     ));
                 } catch (ParseException e) {
                     e.printStackTrace();
@@ -104,6 +105,7 @@ public class DBHandler extends SQLiteOpenHelper {
         }
 
         cursor.close();
+        db.close();
         return transactions;
     }
 
@@ -114,44 +116,47 @@ public class DBHandler extends SQLiteOpenHelper {
 
         if (cursor.moveToFirst()){
             do {
-                accountNo.add(cursor.getString(1));
+                accountNo.add(cursor.getString(0));
             } while (cursor.moveToNext());
         }
 
         cursor.close();
+        db.close();
         return accountNo;
     }
 
     public Account getAccount(String accountNo) throws InvalidAccountException {
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.rawQuery("select * from account where accountNo=" + accountNo, null);
+        Cursor cursor = db.rawQuery("select * from account where accountNo='" + accountNo+"'", null);
 
         Account account;
         if (cursor.getCount() > 0) {
             cursor.moveToFirst();
             account = new Account(
+                    cursor.getString(0),
                     cursor.getString(1),
                     cursor.getString(2),
-                    cursor.getString(3),
-                    cursor.getDouble(4)
+                    cursor.getDouble(3)
             );
         } else {
             String msg = "Account " + accountNo + " is invalid.";
             throw new InvalidAccountException(msg);
         }
         cursor.close();
+        db.close();
 
         return account;
     }
 
     public void removeAccount(String accountNo) throws InvalidAccountException {
-
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete("account", "accountNo = ?", new String[]{accountNo});
+        db.close();
     }
 
     public void updateBalance(String account, double balance){
         SQLiteDatabase db = this.getWritableDatabase();
-        Cursor cursor = db.rawQuery(
-                "update account set balance = " + String.valueOf(balance) + "where accountNo = " + account,
-                null);
+        db.execSQL("update account set balance = " + String.valueOf(balance) + " where accountNo = '" + account +"'");
+        db.close();
     }
 }
