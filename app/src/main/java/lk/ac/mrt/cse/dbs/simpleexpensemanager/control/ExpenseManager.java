@@ -23,8 +23,11 @@ import java.util.List;
 
 import lk.ac.mrt.cse.dbs.simpleexpensemanager.control.exception.ExpenseManagerException;
 import lk.ac.mrt.cse.dbs.simpleexpensemanager.data.AccountDAO;
+import lk.ac.mrt.cse.dbs.simpleexpensemanager.data.DB.DBHandler;
 import lk.ac.mrt.cse.dbs.simpleexpensemanager.data.TransactionDAO;
 import lk.ac.mrt.cse.dbs.simpleexpensemanager.data.exception.InvalidAccountException;
+import lk.ac.mrt.cse.dbs.simpleexpensemanager.data.impl.PersistenceAccountDAO;
+import lk.ac.mrt.cse.dbs.simpleexpensemanager.data.impl.PersistenceTransactionDAO;
 import lk.ac.mrt.cse.dbs.simpleexpensemanager.data.model.Account;
 import lk.ac.mrt.cse.dbs.simpleexpensemanager.data.model.ExpenseType;
 import lk.ac.mrt.cse.dbs.simpleexpensemanager.data.model.Transaction;
@@ -36,6 +39,9 @@ import lk.ac.mrt.cse.dbs.simpleexpensemanager.data.model.Transaction;
 public abstract class ExpenseManager implements Serializable {
     private AccountDAO accountsHolder;
     private TransactionDAO transactionsHolder;
+    protected transient DBHandler DB;
+    protected transient PersistenceAccountDAO persistenceAccountDAO;
+    protected transient PersistenceTransactionDAO persistenceTransactionDAO;
 
     /***
      * Get list of account numbers as String.
@@ -66,7 +72,9 @@ public abstract class ExpenseManager implements Serializable {
         if (!amount.isEmpty()) {
             double amountVal = Double.parseDouble(amount);
             transactionsHolder.logTransaction(transactionDate, accountNo, expenseType, amountVal);
+            persistenceTransactionDAO.logTransaction(transactionDate, accountNo, expenseType, amountVal);
             accountsHolder.updateBalance(accountNo, expenseType, amountVal);
+            persistenceAccountDAO.updateBalance(accountNo, expenseType, amountVal);
         }
     }
 
@@ -90,6 +98,7 @@ public abstract class ExpenseManager implements Serializable {
     public void addAccount(String accountNo, String bankName, String accountHolderName, double initialBalance) {
         Account account = new Account(accountNo, bankName, accountHolderName, initialBalance);
         accountsHolder.addAccount(account);
+        persistenceAccountDAO.addAccount(account);
     }
 
     /***
@@ -133,4 +142,16 @@ public abstract class ExpenseManager implements Serializable {
      * objects will be initialized.
      */
     public abstract void setup() throws ExpenseManagerException;
+
+    public void loadTransactions(){
+        for (Transaction t: persistenceTransactionDAO.getAllTransactionLogs()){
+            transactionsHolder.logTransaction(t.getDate(), t.getAccountNo(), t.getExpenseType(), t.getAmount());
+        }
+    }
+
+    public void loadAccounts(){
+        for (Account a: persistenceAccountDAO.getAccountsList()){
+            accountsHolder.addAccount(a);
+        }
+    }
 }

@@ -12,6 +12,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 
+import lk.ac.mrt.cse.dbs.simpleexpensemanager.data.exception.InvalidAccountException;
 import lk.ac.mrt.cse.dbs.simpleexpensemanager.data.model.Account;
 import lk.ac.mrt.cse.dbs.simpleexpensemanager.data.model.ExpenseType;
 import lk.ac.mrt.cse.dbs.simpleexpensemanager.data.model.Transaction;
@@ -23,8 +24,8 @@ public class DBHandler extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        db.execSQL("create table account(accountNo text primary key, bank text, accountHolder text, balance real);");
-        db.execSQL("create table _transaction(date Date, accountNo text, type text, amount real);");
+        db.execSQL("create table account(accountNo text , bank text, accountHolder text, balance real);");
+        db.execSQL("create table _transaction(date text, accountNo text, type text, amount real);");
     }
 
     @Override
@@ -33,30 +34,30 @@ public class DBHandler extends SQLiteOpenHelper {
         db.execSQL("drop table if exists _transaction");
     }
 
-    public void addAccount(String accountNo, String bank, String accountHolder, double balance){
+    public void addAccount(Account account){
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues contentValues = new ContentValues();
 
-        contentValues.put("accountNo", accountNo);
-        contentValues.put("bank", bank);
-        contentValues.put("accountHolder", accountHolder);
-        contentValues.put("balance", balance);
+        contentValues.put("accountNo", account.getAccountNo());
+        contentValues.put("bank", account.getBankName());
+        contentValues.put("accountHolder", account.getAccountHolderName());
+        contentValues.put("balance", account.getBalance());
 
         db.insert("account", null, contentValues);
         db.close();
     }
 
-    public void addTransaction(Date date, String accountNo, ExpenseType expenseType, double amount){
-        String et = (expenseType == ExpenseType.EXPENSE) ? "expense": "income";
+    public void addTransaction(Transaction transaction){
+        String et = (transaction.getExpenseType() == ExpenseType.EXPENSE) ? "expense": "income";
 
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues contentValues = new ContentValues();
         DateFormat df = new SimpleDateFormat("dd-mm-yyyy");
 
-        contentValues.put("date", df.format(date));
-        contentValues.put("accountNo", accountNo);
+        contentValues.put("date", df.format(transaction.getDate()));
+        contentValues.put("accountNo", transaction.getAccountNo());
         contentValues.put("type", et);
-        contentValues.put("amount", amount);
+        contentValues.put("amount", transaction.getAmount());
 
         db.insert("_transaction", null, contentValues);
         db.close();
@@ -106,10 +107,51 @@ public class DBHandler extends SQLiteOpenHelper {
         return transactions;
     }
 
+    public ArrayList<String> getAccountNOs(){
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery("select accountNo from account", null);
+        ArrayList<String> accountNo = new ArrayList<>();
+
+        if (cursor.moveToFirst()){
+            do {
+                accountNo.add(cursor.getString(1));
+            } while (cursor.moveToNext());
+        }
+
+        cursor.close();
+        return accountNo;
+    }
+
+    public Account getAccount(String accountNo) throws InvalidAccountException {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery("select * from account where accountNo=" + accountNo, null);
+
+        Account account;
+        if (cursor.getCount() > 0) {
+            cursor.moveToFirst();
+            account = new Account(
+                    cursor.getString(1),
+                    cursor.getString(2),
+                    cursor.getString(3),
+                    cursor.getDouble(4)
+            );
+        } else {
+            String msg = "Account " + accountNo + " is invalid.";
+            throw new InvalidAccountException(msg);
+        }
+        cursor.close();
+
+        return account;
+    }
+
+    public void removeAccount(String accountNo) throws InvalidAccountException {
+
+    }
+
     public void updateBalance(String account, double balance){
         SQLiteDatabase db = this.getWritableDatabase();
         Cursor cursor = db.rawQuery(
-                "update accout set balance = " + String.valueOf(balance) + "where accountNo = " + account,
+                "update account set balance = " + String.valueOf(balance) + "where accountNo = " + account,
                 null);
     }
 }
